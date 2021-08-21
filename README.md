@@ -1,10 +1,19 @@
 # SolarEdge_Monitor
 This QuickApp (for the Fibaro Homecenter 3) monitors your SolarEdge managed Solar Panels. The QuickApp has (child) devices for current Power, solar Power, lastday, lastmonth, lastyear and lifetime energy. 
 
+Changes version 1.1 (21th August 2021)
+- Changed back currentPower measurement to Watt and lastDayData, lastMonthData to kWh (not to mess up statistics in Energy panel or InfluxDB/Grafana installations)
+- Changed Child device currentPower to Main device with type com.fibaro.powerSensor (Watt). So the Main device will show the current power production, no Child device necessary. 
+- Changed Child device lastDayData to type com.fibaro.energyMeter (kWh). These values will be shown in the new energy panel. 
+- Added automaticaly change rateType interface of Child device lastDayData to "production"
+- Added extra check on apiKey and siteID, if not OK then change to simulation mode
+- SolarEdge Monitor settings currency and PiekPower also available in simulation mode
+- Changed the lastUpdateTime to format dd-mm-yyyy hh:mm 
+
 Changes version 1.0 (30th July 2021)
 - Total m² solar panels added to log text and label text
 - Check for API existance of lifeTimeData_revenue (not available in older firmware)
-- Automatic conversion added for lastmonthData, lastYearData and lifetimeData production to kWh, MWh or GWh
+- Automatic conversion added for lastmonthData, lastYearData and lifetimeData production to Wh, kWh, MWh or GWh
 - Automatic conversion added for currentPower to Watt, Kilowatt, Megawatt or Gigawatt (yes, Megawatt and Gigawatt is optimistic)
 - Get the Peakpower and Currency settings from Inverter
 - Peakpower added to label text and child device log text
