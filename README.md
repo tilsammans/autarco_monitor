@@ -1,7 +1,7 @@
 # SolarEdge_Monitor
 This QuickApp (for the Fibaro Homecenter 3) monitors your SolarEdge managed Solar Panels. The QuickApp has (child) devices for Current Power, Solar Power, lastday, lastmonth, lastyear and lifetime energy. 
 
-Changes version 1.4 (22th February 2022)
+Changes version 1.4 (22nd February 2022)
 - Changed rounding of all Wh values to one number after the decimal point, to prevent issues with decreasing values from SolarEdge Cloud
 - Added extra check for decreasing values from SolarEdge Cloud lastDayData
 - Changed handling bad responses from SolarEdge Cloud
