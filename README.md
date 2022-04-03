@@ -11,6 +11,10 @@ The readings for lastyear and lifetime energy are automatically set to the right
 See API documentation on https://www.solaredge.com/sites/default/files/se_monitoring_api.pdf 
 
 
+Changes version 2.0 (3rd April 2022)
+- Solved bug with child device lastDay showeing incorrect values in energy panel
+
+
 Changes version 2.0 (26th Match 2022)
 -All *meter device types can now be shown in the Yubii app so: 
    - Changed main device SolarEdge Monitor to device type com.fibaro.powerMeter
@@ -24,7 +28,6 @@ Changes version 2.0 (26th Match 2022)
 - Added SolarEdge Installation details to the labels
 - Added extra timeout and debug logging in case of a bad response 
 - Optimized some code
-
 
 Changes version 1.5 (5th March 2022)
 - Improved the handling of decreasing values
