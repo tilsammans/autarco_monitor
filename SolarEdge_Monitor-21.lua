@@ -13,7 +13,7 @@
 
 
 -- Changes version 2.1 (3rd April 2022)
--- Solved bug with child device lastDay showeing incorrect values in energy panel
+-- Solved bug with child device lastDay showing incorrect values in energy panel
 
 
 -- Changes version 2.0 (26th Match 2022)
