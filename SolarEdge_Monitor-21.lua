@@ -12,7 +12,7 @@
 -- See API documentation on https://www.solaredge.com/sites/default/files/se_monitoring_api.pdf 
 
 
--- Changes version 2.0 (3rd April 2022)
+-- Changes version 2.1 (3rd April 2022)
 -- Solved bug with child device lastDay showeing incorrect values in energy panel
 
 
