@@ -255,7 +255,7 @@ end
 function QuickApp:valuesOverview(table) -- Get the values from json file Overview
   self:logging(3,"QuickApp:valuesOverview()")
   local jsonTable = table
-  data.currentPower = string.format("%.0f", jsonTable.overview.currentPower.power or "0")
+  data.currentPower = string.format("%.0f", jsonTable.stats.kpis.pv_now or "0")
   data.solarPower = string.format("%.1f",self:solarPower(tonumber(data.currentPower), tonumber(solarM2)))
   data.lastDayData = string.format("%.1f",jsonTable.overview.lastDayData.energy/1000 or "0")
   data.lastMonthData = string.format("%.1f",jsonTable.overview.lastMonthData.energy/1000 or "0")
@@ -286,7 +286,7 @@ end
 
 function QuickApp:getEnvBenefits() -- Get Environmental Benefits from the API
   self:logging(3,"QuickApp:getEnvBenefits()")
-  local urlEnvBenefits = "https://my.autarco.com/api/m1/site/"..self:getVariable('siteID').."/power"..string.lower(self:getVariable('systemUnits')):gsub("^%l", string.upper).."&api_key="..self:getVariable('apiKey')
+  local urlEnvBenefits = "https://my.autarco.com/api/m1/site/"..self:getVariable('siteID').."/power"..string.lower(self:getVariable('systemUnits')):gsub("^%l", string.upper)
   self:logging(2,"URL EnvBenefits: " ..urlEnvBenefits)
 
   http:request(urlEnvBenefits, {
@@ -320,8 +320,12 @@ function QuickApp:getData() -- Get Production data from the API
   local urlOverview = "https://my.autarco.com/api/m1/site/"..self:getVariable('siteID').."/power"
   self:logging(2,"URL Overview: " ..urlOverview)
 
+  local headers = {}
+  headers['Accept'] = "application/json"
+  headers['Authorization'] = self:getVariable("Authorization")
+
   http:request(urlOverview, {
-    options={headers = {Accept = "application/json"},method = 'GET'}, success = function(response)
+    options={headers = headers, method = 'GET'}, success = function(response)
       self:logging(3,"response status: " ..response.status)
       self:logging(3,"headers: " ..response.headers["Content-Type"])
       self:logging(2,"Response data: " ..response.data)
@@ -364,7 +368,7 @@ end
 
 function QuickApp:getDetails() -- Get the settings from the API
   self:logging(3,"QuickApp:getDetails()")
-  local urlDetails = "https://my.autarco.com/api/m1/site/"..self:getVariable('siteID').."/details?api_key="..self:getVariable('apiKey')
+  local urlDetails = "https://my.autarco.com/api/m1/site/"..self:getVariable('siteID').."/power"
   self:logging(2,"URL Details: " ..urlDetails)
   http:request(urlDetails, {
     options={headers = {Accept = "application/json"},method = 'GET'}, success = function(response)
@@ -425,7 +429,7 @@ end
 
 function QuickApp:getQuickAppVariables() -- Get all Quickapp Variables or create them
   local siteID = self:getVariable("siteID")
-  local apiKey = self:getVariable("apiKey")
+  local authorization = self:getVariable("Authorization")
   local systemUnits = string.lower(self:getVariable("systemUnits")):gsub("^%l", string.upper)
   solarM2 = tonumber(self:getVariable("solarM2"))
   interval = tonumber(self:getVariable("interval"))
@@ -435,14 +439,14 @@ function QuickApp:getQuickAppVariables() -- Get all Quickapp Variables or create
 
   -- Check existence of the mandatory variables, if not, create them with default values
   if siteID == "" or siteID == nil then
-    siteID = "0" -- This siteID is just an example, it is not working
+    siteID = "0" -- This is just an example, it is not working
     self:setVariable("siteID",siteID)
     self:trace("Added QuickApp variable siteID")
   end
- if apiKey == "" or apiKey == nil then
-    apiKey = "0" -- This API key is just an example, it is not working
-    self:setVariable("apiKey",apiKey)
-    self:trace("Added QuickApp variable apiKey")
+ if authorization == "" or authorization == nil then
+    authorization = "Authorization" -- This is just an example, it is not working
+    self:setVariable("Authorization",authorization)
+    self:trace("Added QuickApp variable Authorization")
   end
  if systemUnits ~= "Metrics" and systemUnits ~= "Imperial" then
     systemUnits = "Metrics" -- Default systemUnits is Metrics (kg)
@@ -477,15 +481,15 @@ function QuickApp:getQuickAppVariables() -- Get all Quickapp Variables or create
     self:trace("Added QuickApp variable debugLevel")
     debugLevel = tonumber(debugLevel)
   end
-  if apiKey == nil or apiKey == ""  or apiKey == "0" then -- Check mandatory apiKey
-    self:error("API key is empty! Get your API key from your installer and copy the apiKey to the quickapp variable")
-    self:warning("No API Key: Switched to Simulation Mode")
-    debugLevel = 4 -- Simulation mode due to empty apiKey
-  end
   if siteID == nil or siteID == ""  or siteID == "0" then -- Check mandatory siteID
     self:error("Site ID is empty! Get your siteID key from your inverter and copy the siteID to the quickapp variable")
     self:warning("No siteID: Switched to Simulation Mode")
     debugLevel = 4 -- Simulation mode due to empty siteID
+  end
+  if authorization == nil or authorization == ""  or authorization == "Authorization" then -- Check mandatory Authorization
+    self:error("Authorization is empty! Get your username and password from My Autarco and copy the Base64 encoded version to the quickapp variable")
+    self:warning("No Authorization: Switched to Simulation Mode")
+    debugLevel = 4 -- Simulation mode due to empty Authorization
   end
   if pause == "true" then
     pause = true
