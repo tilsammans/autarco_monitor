@@ -30,47 +30,52 @@ function energyToday:__init(dev)
     end
   end
 end
-function currentDayData:updateValue(data)
+function energyToday:updateValue(data)
   self:updateProperty("value", tonumber(data.currentDayData))
   self:updateProperty("unit", "kWh")
   self:updateProperty("log", "")
 end
 
-class 'currentMonthData'(QuickAppChild)
-function currentMonthData:__init(dev)
+
+class 'energyThisMonth'(QuickAppChild)
+function energyThisMonth:__init(dev)
   QuickAppChild.__init(self,dev)
+  --self:trace("Retrieved value from currentDayData: " ..self.properties.value)
+  data.prevcurrentDayData = string.format("%.1f", self.properties.value) -- Initialize prevcurrentDayData with value of child device
   if fibaro.getValue(self.id, "rateType") ~= "production" then
     self:updateProperty("rateType", "production")
-    self:warning("Changed rateType interface of Autarco currentMonthData child device (" .. self.id .. ") to production")
+    self:warning("Changed rateType interface of Autarco currentDayData child device (" ..self.id ..") to production")
     if not fibaro.getValue(self.id, "storeEnergyData") then
-      self:updateProperty("storeEnergyData", false)
-      self:warning("Configured storeEnergyData property of currentMonthData child device (" ..self.id ..") to false")
+     self:updateProperty("storeEnergyData", false)
+     self:warning("Configured storeEnergyData property of currentDayData child device (" ..self.id ..") to true")
     end
   end
-function currentData:updateValue(data)
-  self:updateProperty("value", tonumber(data.pvMonth))
+end
+function energyThisMonth:updateValue(data)
+  self:updateProperty("value", tonumber(data.currentDayData))
   self:updateProperty("unit", "kWh")
   self:updateProperty("log", "")
 end
 
-
-class 'lifeTimeData'(QuickAppChild)
-function lifeTimeData:__init(dev)
+class 'energyToDate'(QuickAppChild)
+function energyToDate:__init(dev)
   QuickAppChild.__init(self,dev)
+  --self:trace("Retrieved value from currentDayData: " ..self.properties.value)
+  data.prevcurrentDayData = string.format("%.1f", self.properties.value) -- Initialize prevcurrentDayData with value of child device
   if fibaro.getValue(self.id, "rateType") ~= "production" then
     self:updateProperty("rateType", "production")
-    self:warning("Changed rateType interface of Autarco lifeTimeData child device (" ..self.id ..") to production")
+    self:warning("Changed rateType interface of Autarco currentDayData child device (" ..self.id ..") to production")
     if not fibaro.getValue(self.id, "storeEnergyData") then
-      self:updateProperty("storeEnergyData", false)
-      self:warning("Configured storeEnergyData property of lifeTimeData child device (" ..self.id ..") to false")
+     self:updateProperty("storeEnergyData", false)
+     self:warning("Configured storeEnergyData property of currentDayData child device (" ..self.id ..") to true")
     end
   end
 end
-function lifeTimeData:updateValue(data)
-  self:updateProperty("value", tonumber(data.lifeTimeData))
+function energyToDate:updateValue(data)
+  self:updateProperty("value", tonumber(data.currentDayData))
   self:updateProperty("unit", "kWh")
+  self:updateProperty("log", "")
 end
-
 
 local function getChildVariable(child,varName)
   for _,v in ipairs(child.properties.quickAppVariables or {}) do
@@ -122,8 +127,8 @@ function QuickApp:simData() -- Simulate Autarco Monitor
   self:updateProperties() -- Update the properties
   self:updateChildDevices() -- Update the Child Devices
 
-  self:logging(3,"Timeout " ..interval .." seconds")
-  fibaro.setTimeout(interval*1000, function()
+  self:logging(3,"Timeout " ..self.interval .." seconds")
+  fibaro.setTimeout(self.interval*1000, function()
      self:simData()
   end)
 end
@@ -168,23 +173,6 @@ function QuickApp:updateLabels()
 end
 
 
-function QuickApp:sunsetCheck() -- Check for sunset and sleep time
-  self:logging(3,"QuickApp:sunsetCheck()")
-  local sunset = fibaro.getValue(1, "sunsetHour")
-  if sunset < os.date("%H:%M") and interval == tonumber(self:getVariable("interval")) then -- Sunset change interval when interval is set regular
-    self:logging(3, "Sunset at " ..sunset .." < Current time " ..os.date("%H:%M"))
-    local pause = ((2400 - os.date("%H%M")) + (fibaro.getValue(1, "sunriseHour"):gsub(":","")))*60*60/100 - (interval*2) -- Time in seconds minus two interval rounds
-    interval = tonumber(string.format("%.0f", pause)) -- Set new interval time in seconds
-    self:logging(3,"SET Timeout to " ..interval .." seconds")
-  elseif interval ~= tonumber(self:getVariable("interval")) then-- Reset Reset interval to regular
-    interval = tonumber(self:getVariable("interval"))
-    data.lastUpdateTime = "Paused" -- Change log text main device
-    self:logging(3,"RESET Timeout to " ..interval .." seconds")
-  else  -- Daytime
-    self:logging(3, "Sunset at " ..sunset .." > Current time " ..os.date("%H:%M"))
-  end
-end
-
 -- Store the values from power API
 function QuickApp:valuesPower(table)
   self:logging(3, "QuickApp:valuesPower()")
@@ -227,7 +215,7 @@ function QuickApp:getPower()
         self:warning("Temporarily no production data from Autarco Monitor")
         self:logging(1,"response status: " ..response.status)
         self:logging(1,"Response data: " ..response.data)
-        fibaro.setTimeout(interval*1000, function()
+        fibaro.setTimeout(self.interval*1000, function()
           return
         end)
       end
@@ -245,10 +233,6 @@ function QuickApp:getPower()
       self:updateProperty("log", "error: " ..json.encode(error))
     end
   })
-  self:logging(3,"Timeout " ..interval .." seconds")
-  fibaro.setTimeout(interval*1000, function()
-    self:getPower() -- Loop
-  end)
 end
 
 
@@ -314,11 +298,9 @@ function QuickApp:getQuickAppVariables()
   self.authorization = self:getVariable("authorization") or ""
   self:trace("Added QuickApp variable authorization with value "..self.authorization)
   self.interval = tonumber(self:getVariable("interval")) or 360 -- default 360 seconds (6 minutes)
-  self:trace("Added QuickApp variable interval with value "..self.interva;)
+  self:trace("Added QuickApp variable interval with value "..self.interval)
   self.httpTimeout = tonumber(self:getVariable("httpTimeout")) or 5 -- default 5 seconds
   self:trace("Added QuickApp variable httpTimeout with value "..self.httpTimeout)
-  self.pause = tobool(self:getVariable("pause")) or true -- default true
-  self:trace("Added QuickApp variable pause with value "..self.pause)
   self.debugLevel = tonumber(self:getVariable("debugLevel")) or 1 -- default 1
   self:trace("Added QuickApp variable debugLevel with value "..self.debugLevel)
 
@@ -385,13 +367,16 @@ function QuickApp:onInit()
 
   self:getQuickAppVariables()
 
-  self.httpClient = net.HTTPClient({timeout=httpTimeout*1000})
+  self.httpClient = net.HTTPClient({timeout=self.httpTimeout*1000})
 
   if tonumber(self.debugLevel) >= 4 then
     self:simData() -- Go in simulation
   else
-    self:getEnergy() -- Get settings from Autarco API only at startup
-    self:getPower() -- Go to loop getPower()
+    -- Loop
+    fibaro.setTimeout(self.interval*1000, function()
+      self:getPower()
+      self:getEnergy()
+    end)
   end
 end
 
