@@ -1,97 +1,24 @@
--- QUICKAPP SolarEdge Monitor
+-- QUICKAPP Autarco Monitor
 
--- This QuickApp monitors your SolarEdge managed Solar Panels
+-- This QuickApp monitors your Autarco Solar Panels
 -- The QuickApp has (child) devices for Solar Power, Lastday Data, Lastmonth Data, Lastyear Data and Lifetime Data
--- The Solar Production values are only requested from the SolarEdge Cloud between sunrise and sunset
+-- The Solar Production values are only requested from the Autarco API between sunrise and sunset
 -- The QuickApp also shows the Environmental Benefits in the labels for CO2, SO2, NOX, Trees planted and Lightbulbs
--- The QuickApp also shows the SolarEdge Installation details in the labels
+-- The QuickApp also shows the Autarco Installation details in the labels
 -- The Environmental Benefits are updated once a day after 12:00 hour
--- The settings for Peak Power and Currency are retrieved from the inverter 
--- The rateType interface of Child device Last Day is automatically set to "production" and values from this child devices can be used for the Energy Panel 
--- The readings for lastyear and lifetime energy are automatically set to the right Wh unit (Wh, kWh, MWh or GWh) 
--- See API documentation on https://www.solaredge.com/sites/default/files/se_monitoring_api.pdf 
+-- The settings for Peak Power and Currency are retrieved from the inverter
+-- The rateType interface of Child device Last Day is automatically set to "production" and values from this child devices can be used for the Energy Panel
+-- The readings for lastyear and lifetime energy are automatically set to the right Wh unit (Wh, kWh, MWh or GWh)
 
 
--- Changes version 2.1 (3rd April 2022)
--- Solved bug with child device lastDay showing incorrect values in energy panel
-
-
--- Changes version 2.0 (26th Match 2022)
--- All *meter device types can now be shown in the Yubii app so: 
-   -- Changed main device SolarEdge Monitor to device type com.fibaro.powerMeter
-   -- Changed child device solarPower to device type com.fibaro.powerMeter
-   -- Changed child devices lastDayData, lastMonthData, lastYearData and lifeTimeData to com.fibaro.energyMeter
-   -- Configured storeEnergyData property of lastDayData, lastMonthData, lastYearData and lifeTimeData to com.fibaro.energyMeter to false
-   -- Configured storeEnergyData property of main device SolarEdge Monitor to true
--- Added "pause" mode during sunset and sunrise. During this time NO requests will be send to the Cloud (because there is no solar production during that time). This saves on the ratelimit of 300 requests a day. 
--- Added Environmental Benefits to the labels, with an update once a day
--- Added new QuickApp Variable systemUnits Metrics (kg) or Imperial (lb) for Environmental Benefits
--- Added SolarEdge Installation details to the labels
--- Added extra timeout and debug logging in case of a bad response 
--- Optimized some code
-
--- Changes version 1.5 (5th March 2022)
--- Improved the handling of decreasing values
-
--- Changes version 1.4 (22nd February 2022)
--- Changed rounding of all Wh values to one number after the decimal point, to prevent issues with decreasing values from SolarEdge Cloud
--- Added extra check for decreasing values from SolarEdge Cloud lastDayData
--- Changed handling bad responses from SolarEdge Cloud
--- Removed QuickApp variable icon, icon can be selected in the user interface with the new firmware
-
--- Changes version 1.3 (8th January 2022)
--- Extra check on return value API for "Too many requests"
-
--- Changes version 1.2 (26th August 2021)
--- Added values update main device to power interface to show usage in Power consumption chart
--- Solved a bug in the lifeTimeData.revenue existence check
-
--- Changes version 1.1 (21th August 2021)
--- Changed back currentPower measurement to Watt and lastDayData, lastMonthData to kWh (not to mess up statistics in Energy panel or InfluxDB/Grafana installations)
--- Changed Child device currentPower to Main device with type com.fibaro.powerSensor (Watt). So the Main device will show the current power production, no Child device necessary. 
--- Changed Child device lastDayData to type com.fibaro.energyMeter (kWh). These values will be shown in the new energy panel. 
--- Added automaticaly change rateType interface of Child device lastDayData to "production"
--- Added extra check on apiKey and siteID, if not OK then change to simulation mode
--- SolarEdge Monitor settings currency and PiekPower also available in simulation mode
--- Changed the lastUpdateTime to format dd-mm-yyyy hh:mm 
-
--- Changes version 1.0 (30th July 2021)
--- Total m² solar panels added to log text and label text
--- Check for API existance of lifeTimeData_revenue (not available in older firmware)
--- Automatic conversion added for lastmonthData, lastYearData and lifetimeData production to Wh, kWh, MWh or GWh
--- Automatic conversion added for currentPower to Watt, Kilowatt, Megawatt or Gigawatt (yes, Megawatt and Gigawatt is optimistic)
--- Get the Peakpower and Currency settings from Inverter
--- Peakpower added to label text and child device log text
-
--- Changes version 0.3 (12th April 2021)
--- Added last update date / time
--- Cleaned up the code
-
--- Changes version 0.2 (12th April 2021)
--- Disabled revenue value (except for lifeTimeData)
-
--- Changes version 0.1 (11th April 2021)
--- First (test) version
-
-
--- Variables (mandatory and created automatically): 
--- siteID = Site ID of your SolarEdge Inverter (see your Inverter Site Details)
--- apiKey = API key of your SolarEdge Inverter (contact your installer if you don't have one)
--- systemUnits = SystemUnits is Metrics (kg) or Imperial (Lb) (default is Metrics)
--- solarM2 = The amount of m2 Solar Panels (use . for decimals) for calculating Solar Power m2 (default = 0)
--- interval = The daily API limitation is 300 requests. The default request interval is 360 seconds (6 minutes)
--- pause = Should the SolardEdge go in pause mode after sunset (default = true)
--- debugLevel = Number (1=some, 2=few, 3=all, 4=simulation mode) (default = 1)
-
-
--- No editing of this code is needed 
+-- No editing of this code is needed
 
 
 class 'solarPower'(QuickAppChild)
 function solarPower:__init(dev)
   QuickAppChild.__init(self,dev)
 end
-function solarPower:updateValue(data) 
+function solarPower:updateValue(data)
   self:updateProperty("value", tonumber(data.solarPower))
   self:updateProperty("unit", "Watt/m²")
   self:updateProperty("log", data.peakPower .." kWp / " ..solarM2 .." m²")
@@ -99,19 +26,19 @@ end
 
 class 'lastDayData'(QuickAppChild)
 function lastDayData:__init(dev)
-  QuickAppChild.__init(self,dev) 
-  --self:trace("Retrieved value from lastDayData: " ..self.properties.value) 
+  QuickAppChild.__init(self,dev)
+  --self:trace("Retrieved value from lastDayData: " ..self.properties.value)
   data.prevlastDayData = string.format("%.1f", self.properties.value) -- Initialize prevlastDayData with value of child device
-  if fibaro.getValue(self.id, "rateType") ~= "production" then 
+  if fibaro.getValue(self.id, "rateType") ~= "production" then
     self:updateProperty("rateType", "production")
-    self:warning("Changed rateType interface of SolarEdge lastDayData child device (" ..self.id ..") to production")
+    self:warning("Changed rateType interface of Autarco lastDayData child device (" ..self.id ..") to production")
     if not fibaro.getValue(self.id, "storeEnergyData") then
      self:updateProperty("storeEnergyData", false)
      self:warning("Configured storeEnergyData property of lastDayData child device (" ..self.id ..") to true")
     end
   end
 end
-function lastDayData:updateValue(data) 
+function lastDayData:updateValue(data)
   self:updateProperty("value", tonumber(data.lastDayData))
   self:updateProperty("unit", "kWh")
   self:updateProperty("log", "")
@@ -120,16 +47,16 @@ end
 class 'lastMonthData'(QuickAppChild)
 function lastMonthData:__init(dev)
   QuickAppChild.__init(self,dev)
-  if fibaro.getValue(self.id, "rateType") ~= "production" then 
+  if fibaro.getValue(self.id, "rateType") ~= "production" then
     self:updateProperty("rateType", "production")
-    self:warning("Changed rateType interface of SolarEdge lastMonthData child device (" ..self.id ..") to production")
+    self:warning("Changed rateType interface of Autarco lastMonthData child device (" ..self.id ..") to production")
     if not fibaro.getValue(self.id, "storeEnergyData") then
       self:updateProperty("storeEnergyData", false)
       self:warning("Configured storeEnergyData property of lastMonthData child device (" ..self.id ..") to false")
     end
   end
 end
-function lastMonthData:updateValue(data) 
+function lastMonthData:updateValue(data)
   self:updateProperty("value", tonumber(data.lastMonthData))
   self:updateProperty("unit", "kWh")
   self:updateProperty("log", "")
@@ -138,16 +65,16 @@ end
 class 'lastYearData'(QuickAppChild)
 function lastYearData:__init(dev)
   QuickAppChild.__init(self,dev)
-  if fibaro.getValue(self.id, "rateType") ~= "production" then 
+  if fibaro.getValue(self.id, "rateType") ~= "production" then
     self:updateProperty("rateType", "production")
-    self:warning("Changed rateType interface of SolarEdge lastYearData child device (" ..self.id ..") to production")
+    self:warning("Changed rateType interface of Autarco lastYearData child device (" ..self.id ..") to production")
     if not fibaro.getValue(self.id, "storeEnergyData") then
       self:updateProperty("storeEnergyData", false)
       self:warning("Configured storeEnergyData property of lastYearData child device (" ..self.id ..") to false")
     end
   end
 end
-function lastYearData:updateValue(data) 
+function lastYearData:updateValue(data)
   self:updateProperty("value", tonumber(data.lastYearData))
   self:updateProperty("unit", data.lastYearUnit)
   self:updateProperty("log", "")
@@ -156,16 +83,16 @@ end
 class 'lifeTimeData'(QuickAppChild)
 function lifeTimeData:__init(dev)
   QuickAppChild.__init(self,dev)
-  if fibaro.getValue(self.id, "rateType") ~= "production" then 
+  if fibaro.getValue(self.id, "rateType") ~= "production" then
     self:updateProperty("rateType", "production")
-    self:warning("Changed rateType interface of SolarEdge lifeTimeData child device (" ..self.id ..") to production")
+    self:warning("Changed rateType interface of Autarco lifeTimeData child device (" ..self.id ..") to production")
     if not fibaro.getValue(self.id, "storeEnergyData") then
       self:updateProperty("storeEnergyData", false)
       self:warning("Configured storeEnergyData property of lifeTimeData child device (" ..self.id ..") to false")
     end
   end
 end
-function lifeTimeData:updateValue(data) 
+function lifeTimeData:updateValue(data)
   self:updateProperty("value", tonumber(data.lifeTimeData))
   self:updateProperty("unit", data.lifeTimeUnit)
   self:updateProperty("log", data.lifeTimeData_revenue)
@@ -185,13 +112,13 @@ end
 
 function QuickApp:updateChildDevices()
   for id,child in pairs(self.childDevices) do -- Update Child Devices
-    child:updateValue(data) 
+    child:updateValue(data)
   end
 end
 
 
 function QuickApp:logging(level,text) -- Logging function for debug
-  if tonumber(debugLevel) >= tonumber(level) then 
+  if tonumber(debugLevel) >= tonumber(level) then
       self:debug(text)
   end
 end
@@ -222,7 +149,7 @@ function QuickApp:unitCheckWh(measurement) -- Set the measurement and unit to kW
 end
 
 
-function QuickApp:simData() -- Simulate SolarEdge Monitor
+function QuickApp:simData() -- Simulate Autarco Monitor
   self:logging(3,"QuickApp:simData()")
   local jsonTableDetails = json.decode('{"details":{"id":1234567, "name":"NAME-INSTALLATION", "accountId":123456, "status":"Active", "peakPower":6.8, "lastUpdateTime":"2022-02-01", "currency":"EUR", "installationDate":"2021-02-01", "ptoDate":null, "notes":"", "type":"Optimizers&Inverters", "location":{"country":"Earth", "city":"SimCity", "address":"Street1", "address2":"", "zip":"1234AA", "timeZone":"Europe/Amsterdam", "countryCode":"EU"}, "primaryModule":{"manufacturerName":"LG", "modelName":"LG340", "maximumPower":340}, "uris":{"DETAILS":"/site/1234567/details", "DATA_PERIOD":"/site/1234567/dataPeriod", "OVERVIEW":"/site/1234567/overview"}, "publicSettings":{"isPublic":false}}}')
   local jsonTableEnvBenefits = json.decode('{"envBenefits": { "gasEmissionSaved": {"units": "kg", "co2": 674.93066, "so2": 874.65515,"nox": 278.92545 }, "treesPlanted": 2.2555082200000003, "lightBulbs": 5217.4604 }}') -- Metrics response
@@ -237,7 +164,7 @@ function QuickApp:simData() -- Simulate SolarEdge Monitor
   self:updateChildDevices() -- Update the Child Devices
 
   self:logging(3,"Timeout " ..interval .." seconds")
-  fibaro.setTimeout(interval*1000, function() 
+  fibaro.setTimeout(interval*1000, function()
      self:simData()
   end)
 end
@@ -271,7 +198,7 @@ function QuickApp:updateLabels() -- Update the labels
   labelText = labelText .."NOX: " ..data.nox .." " ..data.units .."\n"
   labelText = labelText .."Trees planted: " ..data.treesPlanted .."\n"
   labelText = labelText .."Lightbulbs: " ..data.lightBulbs .."\n\n"
-  labelText = labelText .."SolarEdge installation: " .."\n"
+  labelText = labelText .."Autarco installation: " .."\n"
   labelText = labelText .."Type: " ..data.type .."\n"
   labelText = labelText .."Module: " ..data.manufacturerName .."\n"
   labelText = labelText .."Model: " ..data.modelName .."\n"
@@ -288,11 +215,11 @@ function QuickApp:sunsetCheck() -- Check for sunset and sleep time
   local sunset = fibaro.getValue(1, "sunsetHour")
   if sunset < os.date("%H:%M") and interval == tonumber(self:getVariable("interval")) then -- Sunset change interval when interval is set regular
     self:logging(3, "Sunset at " ..sunset .." < Current time " ..os.date("%H:%M"))
-    local pause = ((2400 - os.date("%H%M")) + (fibaro.getValue(1, "sunriseHour"):gsub(":","")))*60*60/100 - (interval*2) -- Time in seconds minus two interval rounds  
+    local pause = ((2400 - os.date("%H%M")) + (fibaro.getValue(1, "sunriseHour"):gsub(":","")))*60*60/100 - (interval*2) -- Time in seconds minus two interval rounds
     interval = tonumber(string.format("%.0f", pause)) -- Set new interval time in seconds
     self:logging(3,"SET Timeout to " ..interval .." seconds")
   elseif interval ~= tonumber(self:getVariable("interval")) then-- Reset Reset interval to regular
-    interval = tonumber(self:getVariable("interval")) 
+    interval = tonumber(self:getVariable("interval"))
     data.lastUpdateTime = "Paused" -- Change log text main device
     self:logging(3,"RESET Timeout to " ..interval .." seconds")
   else  -- Daytime
@@ -317,11 +244,11 @@ function QuickApp:valuesEnvBenefits(table) --Get the values from json file Envir
   self:logging(3,"QuickApp:valuesEnvBenefits()")
   local jsonTableEnvBenefits = table
   data.units = jsonTableEnvBenefits.envBenefits.gasEmissionSaved.units or "kg"
-  data.co2 = string.format("%.0f", jsonTableEnvBenefits.envBenefits.gasEmissionSaved.co2 or "0") 
-  data.so2 = string.format("%.0f", jsonTableEnvBenefits.envBenefits.gasEmissionSaved.so2 or "0") 
-  data.nox = string.format("%.0f", jsonTableEnvBenefits.envBenefits.gasEmissionSaved.nox or "0") 
-  data.treesPlanted = string.format("%.0f", jsonTableEnvBenefits.envBenefits.treesPlanted or "0") 
-  data.lightBulbs = string.format("%.0f", jsonTableEnvBenefits.envBenefits.lightBulbs or "0") 
+  data.co2 = string.format("%.0f", jsonTableEnvBenefits.envBenefits.gasEmissionSaved.co2 or "0")
+  data.so2 = string.format("%.0f", jsonTableEnvBenefits.envBenefits.gasEmissionSaved.so2 or "0")
+  data.nox = string.format("%.0f", jsonTableEnvBenefits.envBenefits.gasEmissionSaved.nox or "0")
+  data.treesPlanted = string.format("%.0f", jsonTableEnvBenefits.envBenefits.treesPlanted or "0")
+  data.lightBulbs = string.format("%.0f", jsonTableEnvBenefits.envBenefits.lightBulbs or "0")
 end
 
 
@@ -359,7 +286,7 @@ end
 
 function QuickApp:getEnvBenefits() -- Get Environmental Benefits from the API
   self:logging(3,"QuickApp:getEnvBenefits()")
-  local urlEnvBenefits = "https://monitoringapi.solaredge.com/site/"..self:getVariable('siteID').."/envBenefits?systemUnits="..string.lower(self:getVariable('systemUnits')):gsub("^%l", string.upper).."&api_key="..self:getVariable('apiKey')
+  local urlEnvBenefits = "https://my.autarco.com/api/m1/site/"..self:getVariable('siteID').."/power"..string.lower(self:getVariable('systemUnits')):gsub("^%l", string.upper).."&api_key="..self:getVariable('apiKey')
   self:logging(2,"URL EnvBenefits: " ..urlEnvBenefits)
 
   http:request(urlEnvBenefits, {
@@ -369,7 +296,7 @@ function QuickApp:getEnvBenefits() -- Get Environmental Benefits from the API
       self:logging(2,"Response data: " ..response.data)
 
       if response.data == nil or response.data == "" or response.data == "[]" or response.status > 200 then -- Check for empty result
-        self:warning("Temporarily no Environmental Benefits data from SolarEdge Monitor")
+        self:warning("Temporarily no Environmental Benefits data from Autarco Monitor")
         self:logging(1,"response status: " ..response.status)
         self:logging(1,"Response data: " ..response.data)
         return
@@ -384,13 +311,13 @@ function QuickApp:getEnvBenefits() -- Get Environmental Benefits from the API
       self:error("error: " ..json.encode(error))
       self:updateProperty("log", "error: " ..json.encode(error))
     end
-  }) 
+  })
 end
 
 
 function QuickApp:getData() -- Get Production data from the API
   self:logging(3,"QuickApp:getData()")
-  local urlOverview = "https://monitoringapi.solaredge.com/site/"..self:getVariable('siteID').."/overview.json?api_key="..self:getVariable('apiKey')
+  local urlOverview = "https://my.autarco.com/api/m1/site/"..self:getVariable('siteID').."/power"
   self:logging(2,"URL Overview: " ..urlOverview)
 
   http:request(urlOverview, {
@@ -400,10 +327,10 @@ function QuickApp:getData() -- Get Production data from the API
       self:logging(2,"Response data: " ..response.data)
 
       if response.data == nil or response.data == "" or response.data == "[]" or response.status > 200 then -- Check for empty result
-        self:warning("Temporarily no production data from SolarEdge Monitor")
+        self:warning("Temporarily no production data from Autarco Monitor")
         self:logging(1,"response status: " ..response.status)
         self:logging(1,"Response data: " ..response.data)
-        fibaro.setTimeout(interval*1000, function() 
+        fibaro.setTimeout(interval*1000, function()
           return
         end)
       end
@@ -422,13 +349,13 @@ function QuickApp:getData() -- Get Production data from the API
       self:error("error: " ..json.encode(error))
       self:updateProperty("log", "error: " ..json.encode(error))
     end
-  }) 
+  })
   self:logging(3,"Timeout " ..interval .." seconds")
   fibaro.setTimeout(interval*1000, function()
     self:logging(3,"EnvBenefits countdown: " ..tonumber(os.date("%H%M"))-1200 .." < " ..interval/60 .." and >= 0")
     if tonumber(os.date("%H%M"))-1200 >= 0 and tonumber(os.date("%H%M"))-1200 < (interval/60) then -- Get Environmental Benefits data once every day after 12:00 hour
       self:logging(2,"Get EnvBenefits at " ..os.date("%d-%m-%Y %H:%M"))
-      self:getEnvBenefits() -- Get Environmental Benefits data from SolarEdge Cloud
+      self:getEnvBenefits() -- Get Environmental Benefits data from Autarco API
     end
     self:getData() -- Loop
   end)
@@ -437,7 +364,7 @@ end
 
 function QuickApp:getDetails() -- Get the settings from the API
   self:logging(3,"QuickApp:getDetails()")
-  local urlDetails = "https://monitoringapi.solaredge.com/site/"..self:getVariable('siteID').."/details?api_key="..self:getVariable('apiKey')
+  local urlDetails = "https://my.autarco.com/api/m1/site/"..self:getVariable('siteID').."/details?api_key="..self:getVariable('apiKey')
   self:logging(2,"URL Details: " ..urlDetails)
   http:request(urlDetails, {
     options={headers = {Accept = "application/json"},method = 'GET'}, success = function(response)
@@ -446,7 +373,7 @@ function QuickApp:getDetails() -- Get the settings from the API
       self:logging(2,"Response data: " ..response.data)
 
       if response.data == nil or response.data == "" or response.data == "[]" or response.status > 200 then -- Check for empty result
-        self:warning("Temporarily no details data from SolarEdge Monitor")
+        self:warning("Temporarily no details data from Autarco Monitor")
         self:logging(1,"response status: " ..response.status)
         self:logging(1,"Response data: " ..response.data)
         return
@@ -461,11 +388,11 @@ function QuickApp:getDetails() -- Get the settings from the API
       self:error("error: " ..json.encode(error))
       self:updateProperty("log", "error: " ..json.encode(error))
     end
-  }) 
+  })
 end
 
 
-function QuickApp:createVariables() -- Create all Variables 
+function QuickApp:createVariables() -- Create all Variables
   data = {}
 
   data.peakPower = "0"
@@ -483,7 +410,7 @@ function QuickApp:createVariables() -- Create all Variables
   data.lightBulbs = "0"
 
   data.currentPower = "0"
-  data.solarPower = "0" 
+  data.solarPower = "0"
   data.lastDayData = "0"
   --data.prevlastDayData = "0" -- Is set in Child device class
   data.lastMonthData = "0"
@@ -501,14 +428,14 @@ function QuickApp:getQuickAppVariables() -- Get all Quickapp Variables or create
   local apiKey = self:getVariable("apiKey")
   local systemUnits = string.lower(self:getVariable("systemUnits")):gsub("^%l", string.upper)
   solarM2 = tonumber(self:getVariable("solarM2"))
-  interval = tonumber(self:getVariable("interval")) 
-  httpTimeout = tonumber(self:getVariable("httpTimeout")) 
+  interval = tonumber(self:getVariable("interval"))
+  httpTimeout = tonumber(self:getVariable("httpTimeout"))
   pause = string.lower(self:getVariable("pause"))
   debugLevel = tonumber(self:getVariable("debugLevel"))
 
   -- Check existence of the mandatory variables, if not, create them with default values
   if siteID == "" or siteID == nil then
-    siteID = "0" -- This siteID is just an example, it is not working 
+    siteID = "0" -- This siteID is just an example, it is not working
     self:setVariable("siteID",siteID)
     self:trace("Added QuickApp variable siteID")
   end
@@ -516,52 +443,52 @@ function QuickApp:getQuickAppVariables() -- Get all Quickapp Variables or create
     apiKey = "0" -- This API key is just an example, it is not working
     self:setVariable("apiKey",apiKey)
     self:trace("Added QuickApp variable apiKey")
-  end 
+  end
  if systemUnits ~= "Metrics" and systemUnits ~= "Imperial" then
     systemUnits = "Metrics" -- Default systemUnits is Metrics (kg)
     self:setVariable("systemUnits",systemUnits)
     self:trace("Added QuickApp variable systemUnits")
-  end 
-  if solarM2 == "" or solarM2 == nil then 
-    solarM2 = "0" 
+  end
+  if solarM2 == "" or solarM2 == nil then
+    solarM2 = "0"
     self:setVariable("solarM2",solarM2)
     self:trace("Added QuickApp variable solarM2")
-  end 
+  end
   if interval == "" or interval == nil then
-    interval = "360" -- The default interval is 6 minutes (360 seconds) 
+    interval = "360" -- The default interval is 6 minutes (360 seconds)
     self:setVariable("interval",interval)
     self:trace("Added QuickApp variable interval")
     interval = tonumber(interval)
   end
   if httpTimeout == "" or httpTimeout == nil then
-    httpTimeout = "5" -- Default http timeout 
+    httpTimeout = "5" -- Default http timeout
     self:setVariable("httpTimeout",httpTimeout)
     self:trace("Added QuickApp variable httpTimeout")
     httpTimeout = tonumber(httpTimeout)
-  end 
-  if pause == "" or pause == nil then 
-    pause = "true" 
+  end
+  if pause == "" or pause == nil then
+    pause = "true"
     self:setVariable("pause",pause)
     self:trace("Added QuickApp variable pause")
-  end  
+  end
   if debugLevel == "" or debugLevel == nil then
     debugLevel = "1" -- Default debug level
     self:setVariable("debugLevel",debugLevel)
     self:trace("Added QuickApp variable debugLevel")
     debugLevel = tonumber(debugLevel)
   end
-  if apiKey == nil or apiKey == ""  or apiKey == "0" then -- Check mandatory apiKey 
+  if apiKey == nil or apiKey == ""  or apiKey == "0" then -- Check mandatory apiKey
     self:error("API key is empty! Get your API key from your installer and copy the apiKey to the quickapp variable")
     self:warning("No API Key: Switched to Simulation Mode")
     debugLevel = 4 -- Simulation mode due to empty apiKey
   end
-  if siteID == nil or siteID == ""  or siteID == "0" then -- Check mandatory siteID   
+  if siteID == nil or siteID == ""  or siteID == "0" then -- Check mandatory siteID
     self:error("Site ID is empty! Get your siteID key from your inverter and copy the siteID to the quickapp variable")
     self:warning("No siteID: Switched to Simulation Mode")
-    debugLevel = 4 -- Simulation mode due to empty siteID 
+    debugLevel = 4 -- Simulation mode due to empty siteID
   end
-  if pause == "true" then 
-    pause = true 
+  if pause == "true" then
+    pause = true
   else
     pause = false
   end
@@ -573,7 +500,7 @@ function QuickApp:setupChildDevices()
   function self:initChildDevices() end -- Null function, else Fibaro calls it after onInit()...
 
   if #cdevs == 0 then -- If no Child Devices, create them
-    local initChildData = { 
+    local initChildData = {
       {className="solarPower", name="Solar Power", type="com.fibaro.powerMeter", value=0},
       {className="lastDayData", name="Last day", type="com.fibaro.energyMeter", value=0},
       {className="lastMonthData", name="Last month", type="com.fibaro.energyMeter", value=0},
@@ -582,17 +509,17 @@ function QuickApp:setupChildDevices()
     }
     for _,c in ipairs(initChildData) do
       local child = self:createChildDevice(
-        {name = c.name, type=c.type, value=c.value, initialInterfaces = {}, }, 
+        {name = c.name, type=c.type, value=c.value, initialInterfaces = {}, },
         _G[c.className] -- Fetch class constructor from class name
       )
       child:setVariable("className",c.className)  -- Save class name so we know when we load it next time
-    end   
-  else 
+    end
+  else
     for _,child in ipairs(cdevs) do
       local className = getChildVariable(child,"className") -- Fetch child class name
       local childObject = _G[className](child) -- Create child object from the constructor name
       self.childDevices[child.id]=childObject
-      childObject.parent = self -- Setup parent link to device controller 
+      childObject.parent = self -- Setup parent link to device controller
     end
   end
 end
@@ -600,8 +527,8 @@ end
 
 function QuickApp:onInit()
   __TAG = fibaro.getName(plugin.mainDeviceId) .." ID:" ..plugin.mainDeviceId
-  self:debug("QuickApp:onInit()") 
-  
+  self:debug("QuickApp:onInit()")
+
   self:createVariables() -- Early because of initialise the value for prevlastDayData
   self:setupChildDevices() -- Setup all child devices
 
@@ -610,17 +537,17 @@ function QuickApp:onInit()
     return
   end
 
-  self:getQuickAppVariables() 
+  self:getQuickAppVariables()
 
   http = net.HTTPClient({timeout=httpTimeout*1000})
 
-  if tonumber(debugLevel) >= 4 then 
+  if tonumber(debugLevel) >= 4 then
     self:simData() -- Go in simulation
   else
-    self:getDetails() -- Get settings from SolarEdge Monitor from SolarEdge Cloud only at startup
-    self:getEnvBenefits() -- Get Environmental Benefits initial data from SolarEdge Cloud
+    self:getDetails() -- Get settings from Autarco API only at startup
+    self:getEnvBenefits() -- Get Environmental Benefits initial data from Autarco API
     self:getData() -- Go to loop getData()
   end
 end
 
--- EOF  
+-- EOF
