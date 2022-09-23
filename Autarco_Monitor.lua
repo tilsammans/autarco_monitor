@@ -16,8 +16,8 @@ function solarPower:updateValue(data)
   self:updateProperty("unit", "Watt")
 end
 
-class 'currentDayData'(QuickAppChild)
-function currentDayData:__init(dev)
+class 'energyToday'(QuickAppChild)
+function energyToday:__init(dev)
   QuickAppChild.__init(self,dev)
   --self:trace("Retrieved value from currentDayData: " ..self.properties.value)
   data.prevcurrentDayData = string.format("%.1f", self.properties.value) -- Initialize prevcurrentDayData with value of child device
@@ -82,33 +82,22 @@ end
 
 -- QuickApp functions
 
-
+-- Update Child Devices
 function QuickApp:updateChildDevices()
-  for id,child in pairs(self.childDevices) do -- Update Child Devices
+  for id,child in pairs(self.childDevices) do
     child:updateValue(data)
   end
 end
 
-
-function QuickApp:logging(level,text) -- Logging function for debug
-  if tonumber(debugLevel) >= tonumber(level) then
+-- Logging function for debug
+function QuickApp:logging(level,text)
+  if tonumber(self.debugLevel) >= tonumber(level) then
       self:debug(text)
   end
 end
 
-
-function QuickApp:solarPower(power, m2) -- Calculate Solar Power M2
-  self:logging(3,"QuickApp:solarPower()")
-  if m2 > 0 and power > 0 then
-    solarPower = power / m2
-  else
-    solarPower = 0
-  end
-  return solarPower
-end
-
-
-function QuickApp:unitCheckWh(measurement) -- Set the measurement and unit to kWh, MWh or GWh
+-- Set the measurement and unit to kWh, MWh or GWh
+function QuickApp:unitCheckWh(measurement)
   self:logging(3,"QuickApp:unitCheckWh()")
   if measurement > 1000000000 then
     return string.format("%.1f",measurement/1000000000),"GWh"
@@ -148,24 +137,31 @@ function QuickApp:updateProperties() -- Update the properties
   self:updateProperty("log", data.lastUpdateTime)
 end
 
-
-function QuickApp:updateLabels() -- Update the labels
+-- Update the labels
+function QuickApp:updateLabels()
   self:logging(3,"QuickApp:updateLabels()")
   local labelText = ""
-  if debugLevel == 4 then
+  if self.debugLevel == 4 then
     labelText = labelText .."SIMULATION MODE" .."\n\n"
   end
-  labelText = labelText .."Current power: " ..data.currentPower .." Watt" .."\n\n"
-  labelText = labelText .."Current day: " ..data.currentDayData .." kWh" .."\n"
-  labelText = labelText .."Current month: " ..data.currentMonthData .." kWh" .."\n"
-  labelText = labelText .."Lastyear: " ..data.lastYearData .." " ..data.lastYearUnit .."\n"
-  labelText = labelText .."Lifetime: " ..data.lifeTimeData .." " ..data.lifeTimeUnit .." (" ..data.lifeTimeData_revenue ..")" .."\n\n"
-  labelText = labelText .."Autarco installation: " .."\n"
-  labelText = labelText .."Type: " ..data.type .."\n"
-  labelText = labelText .."Module: " ..data.manufacturerName .."\n"
-  labelText = labelText .."Model: " ..data.modelName .."\n"
-  labelText = labelText .."Maximum Power: " ..data.maximumPower .."\n\n"
-  labelText = labelText .."Last update: " ..data.lastUpdateTime .."\n"
+  labelText = labelText .."Current power: " ..self.stats.kpis.pv_now .." Watt" .."\n"
+  labelText = labelText .. "\n"
+  labelText = labelText .."Energy today: " ..self.kpis.pv_today .." kWh" .."\n"
+  labelText = labelText .."Energy this month: " ..self.kpis.pv_month .." kWh" .."\n"
+  labelText = labelText .."Energy to date: " ..self.kpis.pv_to_date .." kWh" .."\n"
+  labelText = labelText .. "\n"
+  labelText = labelText .. "Inverters:"
+
+  for inverter in self.inverters do
+    labelText = labelText .."Serial number: " ..inverter.sn .."\n"
+    labelText = labelText .."Latest message: " ..inverter.dt_latest_msg .."\n"
+    labelText = labelText .."Output AC Power: " ..inverter.out_ac_power .."\n"
+    labelText = labelText .."Output AC Energy total: " ..inverter.out_ac_energy_total .."\n"
+    labelText = labelText .."Error: " ..inverter.error .."\n"
+    labelText = labelText .."Grid turned off? " ..inverter.grid_turned_off .."\n"
+    labelText = labelText .."Health: " ..inverter.health .."\n"
+    labelText = labelText .. "--\n"
+  end
 
   self:updateView("label", "text", labelText)
   self:logging(2,labelText)
@@ -189,51 +185,43 @@ function QuickApp:sunsetCheck() -- Check for sunset and sleep time
   end
 end
 
+-- Store the values from power API
+function QuickApp:valuesPower(table)
+  self:logging(3, "QuickApp:valuesPower()")
 
-function QuickApp:valuesCheck() -- Check for decreasing Cloud values for currentDayData
-  self:logging(3,"QuickApp:valuesCheck()")
-  self:logging(3,"Previous currentDayData: " ..data.prevcurrentDayData .. " / Next currentDayData: " ..data.currentDayData)
-  if tonumber(data.currentDayData) < tonumber(data.prevcurrentDayData) and tonumber(data.prevcurrentDayData) ~= 0 and tonumber(data.currentDayData) ~= 0 then -- Decreasing value
-    self:logging(2,"Decreasing value currentDayData ignored (Energy Panel Child Device), previous value: " ..data.prevcurrentDayData .." next value: " ..data.currentDayData)
-    data.currentDayData = string.format("%.1f", data.prevcurrentDayData) -- Restore previous (higher)currentDayData value
-  else
-    data.prevcurrentDayData = string.format("%.1f", data.currentDayData) -- Save currentDayData to prevcurrentDayData only in case of increasing value
+  self.dtConfigChanged = table.dt_config_changed
+  self.inverters = table.inverters
+  self.stats = table.stats
+
+  -- store all inverters into an array
+  local index = 1
+  self.inverters = {}
+  for _,inverter in ipairs(table.inverters) do
+    self.inverters[index] = inverter
+    index = index + 1
   end
 end
 
+-- Store the values from Energy API
+function QuickApp:valuesEnergy(table)
+  self:logging(3, "QuickApp:valuesEnergy()")
 
-function QuickApp:valuesOverview(table) -- Get the values from json file Overview
-  self:logging(3,"QuickApp:valuesOverview()")
-  local jsonTable = table
-  data.currentPower = string.format("%.0f", jsonTableEnergy.stats.kpis.pv_now or "0")
-  data.currentDayData = string.format("%.1f",jsonTableEnergy.stats.kpis.pv_today or "0")
-  data.currentMonthData = string.format("%.1f",jsonTableEnergy.stats.kpis.pv_month or "0")
-  data.lifeTimeData = jsonTableEnergy.stats.kpis.pv_to_date or "0"
-  data.lastUpdateTime = jsonTablePower.inverters.154E41209290014.dt_latest_msg or os.date("%d-%m-%Y %H:%M:%S")
+  self.graphs = table.graphs
+  self.kpis = table.kpis
 end
 
-
-function QuickApp:valuesEnergy(table) -- Get the values from Energy json API
-  self:logging(3,"QuickApp:valuesEnergy()")
-  local jsonTableEnergy = table
-  data.stats = jsonTableEnergy.stats or {}
-end
-
-
-function QuickApp:getPower() -- Get Production data from the API
+-- Get Production data from the API
+function QuickApp:getPower()
   self:logging(3,"QuickApp:getPower()")
-  local urlOverview = "https://my.autarco.com/api/m1/site/"..self:getVariable('siteID').."/power"
-  self:logging(2,"URL Overview: " ..urlOverview)
+  local urlPower = "https://my.autarco.com/api/m1/site/"..self.siteID.."/power"
+  self:logging(2,"URL Power: " ..urlPower)
 
-  local headers = {}
-  headers['Accept'] = "application/json"
-  headers['Authorization'] = self:getVariable("Authorization")
-
-  http:request(urlOverview, {
-    options={headers = headers, method = 'GET'}, success = function(response)
-      self:logging(3,"response status: " ..response.status)
-      self:logging(3,"headers: " ..response.headers["Content-Type"])
-      self:logging(2,"Response data: " ..response.data)
+  self.httpClient:request(urlPower, {
+    options = { headers = self.headers, method = 'GET' },
+    success = function(response)
+      self:logging(3, "response status: " ..response.status)
+      self:logging(3, "headers: " ..response.headers["Content-Type"])
+      self:logging(2, "Response data: " ..response.data)
 
       if response.data == nil or response.data == "" or response.status > 200 then -- Check for empty result
         self:warning("Temporarily no production data from Autarco Monitor")
@@ -244,11 +232,9 @@ function QuickApp:getPower() -- Get Production data from the API
         end)
       end
 
-      local jsonTable = json.decode(response.data) -- JSON decode from api to lua-table
+      local table = json.decode(response.data) -- JSON decode from api to lua-table
 
-      self:valuesOverview(jsonTable) -- Get the values from Overview
-      self:valuesCheck() -- Check of Cloud decreasing values lastDayData
-      if pause then self:sunsetCheck() end -- Check for Sunset to set higher interval or return to origional setting
+      self:valuesPower(table) -- store the power values
       self:updateLabels() -- Update the labels
       self:updateProperties() -- Update the properties
       self:updateChildDevices() -- Update the Child Devices
@@ -268,15 +254,12 @@ end
 
 function QuickApp:getEnergy() -- Get the settings from the API
   self:logging(3,"QuickApp:getEnergy()")
-  local urlEnergy = "https://my.autarco.com/api/m1/site/"..self:getVariable('siteID').."/power"
+  local urlEnergy = "https://my.autarco.com/api/m1/site/"..self:getVariable('siteID').."/energy"
   self:logging(2,"URL Energy: " ..urlEnergy)
 
-  local headers = {}
-  headers['Accept'] = "application/json"
-  headers['Authorization'] = self:getVariable("Authorization")
-
-  http:request(urlEnergy, {
-    options={headers = headers,method = 'GET'}, success = function(response)
+  self.httpClient:request(urlEnergy, {
+    options={headers = headers,method = 'GET'},
+    success = function(response)
       self:logging(3,"response status: " ..response.status)
       self:logging(3,"headers: " ..response.headers["Content-Type"])
       self:logging(2,"Response data: " ..response.data)
@@ -304,12 +287,13 @@ end
 function QuickApp:createVariables() -- Create all Variables
   data = {}
 
-  data.peakPower = "0"
-  data.currency = "EUR"
-  data.type = ""
-  data.manufacturerName = ""
-  data.modelName = ""
-  data.maximumPower = ""
+  data.sn = ""
+  data.latestMsg = ""
+  data.outAcPower = 0
+  data.outAcEnergyTotal = 0
+  data.error = ""
+  data.gridTurnedOff = false
+  data.health = ""
 
   data.units = ""
   data.currentPower = "0"
@@ -323,75 +307,37 @@ function QuickApp:createVariables() -- Create all Variables
   data.lastUpdateTime = ""
 end
 
+-- Get all Quickapp Variables or create them
+function QuickApp:getQuickAppVariables()
+  self.siteID = self:getVariable("siteID") or ""
+  self:trace("Added QuickApp variable siteID with value "..self.siteID)
+  self.authorization = self:getVariable("authorization") or ""
+  self:trace("Added QuickApp variable authorization with value "..self.authorization)
+  self.interval = tonumber(self:getVariable("interval")) or 360 -- default 360 seconds (6 minutes)
+  self:trace("Added QuickApp variable interval with value "..self.interva;)
+  self.httpTimeout = tonumber(self:getVariable("httpTimeout")) or 5 -- default 5 seconds
+  self:trace("Added QuickApp variable httpTimeout with value "..self.httpTimeout)
+  self.pause = tobool(self:getVariable("pause")) or true -- default true
+  self:trace("Added QuickApp variable pause with value "..self.pause)
+  self.debugLevel = tonumber(self:getVariable("debugLevel")) or 1 -- default 1
+  self:trace("Added QuickApp variable debugLevel with value "..self.debugLevel)
 
-function QuickApp:getQuickAppVariables() -- Get all Quickapp Variables or create them
-  local siteID = self:getVariable("siteID")
-  local authorization = self:getVariable("Authorization")
-  local systemUnits = string.lower(self:getVariable("systemUnits")):gsub("^%l", string.upper)
-  solarM2 = tonumber(self:getVariable("solarM2"))
-  interval = tonumber(self:getVariable("interval"))
-  httpTimeout = tonumber(self:getVariable("httpTimeout"))
-  pause = string.lower(self:getVariable("pause"))
-  debugLevel = tonumber(self:getVariable("debugLevel"))
+  self.headers = {Accept="application/json"}
 
-  -- Check existence of the mandatory variables, if not, create them with default values
-  if siteID == "" or siteID == nil then
-    siteID = "0" -- This is just an example, it is not working
-    self:setVariable("siteID",siteID)
-    self:trace("Added QuickApp variable siteID")
-  end
- if authorization == "" or authorization == nil then
-    authorization = "Authorization" -- This is just an example, it is not working
-    self:setVariable("Authorization",authorization)
-    self:trace("Added QuickApp variable Authorization")
-  end
- if systemUnits ~= "Metrics" and systemUnits ~= "Imperial" then
-    systemUnits = "Metrics" -- Default systemUnits is Metrics (kg)
-    self:setVariable("systemUnits",systemUnits)
-    self:trace("Added QuickApp variable systemUnits")
-  end
-  if solarM2 == "" or solarM2 == nil then
-    solarM2 = "0"
-    self:setVariable("solarM2",solarM2)
-    self:trace("Added QuickApp variable solarM2")
-  end
-  if interval == "" or interval == nil then
-    interval = "360" -- The default interval is 6 minutes (360 seconds)
-    self:setVariable("interval",interval)
-    self:trace("Added QuickApp variable interval")
-    interval = tonumber(interval)
-  end
-  if httpTimeout == "" or httpTimeout == nil then
-    httpTimeout = "5" -- Default http timeout
-    self:setVariable("httpTimeout",httpTimeout)
-    self:trace("Added QuickApp variable httpTimeout")
-    httpTimeout = tonumber(httpTimeout)
-  end
-  if pause == "" or pause == nil then
-    pause = "true"
-    self:setVariable("pause",pause)
-    self:trace("Added QuickApp variable pause")
-  end
-  if debugLevel == "" or debugLevel == nil then
-    debugLevel = "1" -- Default debug level
-    self:setVariable("debugLevel",debugLevel)
-    self:trace("Added QuickApp variable debugLevel")
-    debugLevel = tonumber(debugLevel)
-  end
-  if siteID == nil or siteID == ""  or siteID == "0" then -- Check mandatory siteID
-    self:error("Site ID is empty! Get your siteID key from your inverter and copy the siteID to the quickapp variable")
+  -- Check mandatory siteID
+  if self.siteID == "" then
+    self:error("siteID is empty! Get it from My Autarco and add it as a variable")
     self:warning("No siteID: Switched to Simulation Mode")
-    debugLevel = 4 -- Simulation mode due to empty siteID
+    self.debugLevel = 4 -- Simulation mode due to empty siteID
   end
-  if authorization == nil or authorization == ""  or authorization == "Authorization" then -- Check mandatory Authorization
-    self:error("Authorization is empty! Get your username and password from My Autarco and copy the Base64 encoded version to the quickapp variable")
-    self:warning("No Authorization: Switched to Simulation Mode")
-    debugLevel = 4 -- Simulation mode due to empty Authorization
-  end
-  if pause == "true" then
-    pause = true
+
+  -- Check mandatory Authorization
+  if self.authorization == "" then
+    self:error("Authorization is empty! Get your username and password from My Autarco, join them with a colon and add the base64 encoded result as a variable")
+    self:warning("No authorization: Switched to Simulation Mode")
+    self.debugLevel = 4 -- Simulation mode due to empty Authorization
   else
-    pause = false
+    self.headers.Authorization=self.authorization
   end
 end
 
@@ -402,11 +348,10 @@ function QuickApp:setupChildDevices()
 
   if #cdevs == 0 then -- If no Child Devices, create them
     local initChildData = {
-      {className="solarPower", name="Solar Power", type="com.fibaro.powerMeter", value=0},
-      {className="lastDayData", name="Last day", type="com.fibaro.energyMeter", value=0},
-      {className="currentMonthData", name="Current month", type="com.fibaro.energyMeter", value=0},
-      {className="lastYearData", name="Last year", type="com.fibaro.energyMeter", value=0},
-      {className="lifeTimeData", name="Lifetime", type="com.fibaro.energyMeter", value=0},
+      { className="solarPower", name="Solar Power", type="com.fibaro.powerMeter", value=0},
+      { className="energyToday", name="Energy today", type="com.fibaro.egeryMeter", value=0},
+      { className="energyThisMonth", name="Energy this month", type="com.fibaro.energyMeter", value=0},
+      { className="energyToDate", name="Energy to date", type="com.fibaro.energyMeter", value=0}
     }
     for _,c in ipairs(initChildData) do
       local child = self:createChildDevice(
@@ -440,9 +385,9 @@ function QuickApp:onInit()
 
   self:getQuickAppVariables()
 
-  http = net.HTTPClient({timeout=httpTimeout*1000})
+  self.httpClient = net.HTTPClient({timeout=httpTimeout*1000})
 
-  if tonumber(debugLevel) >= 4 then
+  if tonumber(self.debugLevel) >= 4 then
     self:simData() -- Go in simulation
   else
     self:getEnergy() -- Get settings from Autarco API only at startup
