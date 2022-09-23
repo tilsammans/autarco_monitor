@@ -3,17 +3,10 @@
 -- This QuickApp monitors your Autarco Solar Panels
 -- The QuickApp has (child) devices for Solar Power, Lastday Data, Lastmonth Data, Lastyear Data and Lifetime Data
 -- The Solar Production values are only requested from the Autarco API between sunrise and sunset
--- The QuickApp also shows the Environmental Benefits in the labels for CO2, SO2, NOX, Trees planted and Lightbulbs
 -- The QuickApp also shows the Autarco Installation details in the labels
--- The Environmental Benefits are updated once a day after 12:00 hour
 -- The settings for Peak Power and Currency are retrieved from the inverter
 -- The rateType interface of Child device Last Day is automatically set to "production" and values from this child devices can be used for the Energy Panel
 -- The readings for lastyear and lifetime energy are automatically set to the right Wh unit (Wh, kWh, MWh or GWh)
-
-
--- No editing of this code is needed
-
-
 class 'solarPower'(QuickAppChild)
 function solarPower:__init(dev)
   QuickAppChild.__init(self,dev)
@@ -152,12 +145,9 @@ end
 function QuickApp:simData() -- Simulate Autarco Monitor
   self:logging(3,"QuickApp:simData()")
   local jsonTableDetails = json.decode('{"details":{"id":1234567, "name":"NAME-INSTALLATION", "accountId":123456, "status":"Active", "peakPower":6.8, "lastUpdateTime":"2022-02-01", "currency":"EUR", "installationDate":"2021-02-01", "ptoDate":null, "notes":"", "type":"Optimizers&Inverters", "location":{"country":"Earth", "city":"SimCity", "address":"Street1", "address2":"", "zip":"1234AA", "timeZone":"Europe/Amsterdam", "countryCode":"EU"}, "primaryModule":{"manufacturerName":"LG", "modelName":"LG340", "maximumPower":340}, "uris":{"DETAILS":"/site/1234567/details", "DATA_PERIOD":"/site/1234567/dataPeriod", "OVERVIEW":"/site/1234567/overview"}, "publicSettings":{"isPublic":false}}}')
-  local jsonTableEnvBenefits = json.decode('{"envBenefits": { "gasEmissionSaved": {"units": "kg", "co2": 674.93066, "so2": 874.65515,"nox": 278.92545 }, "treesPlanted": 2.2555082200000003, "lightBulbs": 5217.4604 }}') -- Metrics response
-  -- local jsonTableEnvBenefits = json.decode('{"envBenefits": { "gasEmissionSaved": {"units": "lb", "co2": 1486.63, "so2": 1926.55, "nox": 614.37 }, "treesPlanted": 2.2555082200000003, "lightBulbs": 5217.4604 }}') -- Imperial response
   local jsonTable = json.decode('{"overview":{"lastUpdateTime":"2021-08-12 13:46:04","lifeTimeData":{"energy":7827878.0,"revenue":1728.5211},"lastYearData":{"energy":573242.0},"lastMonthData":{"energy":113386.0},"lastDayData":{"energy":7373.0},"currentPower":{"power":134.73499},"measuredBy":"INVERTER"}}') -- With revenue
 
   self:valuesDetails(jsonTableDetails) -- Get the values from Details
-  self:valuesEnvBenefits(jsonTableEnvBenefits) -- Get the values from EnvBenefits
   self:valuesOverview(jsonTable) -- Get the values from Overview
   self:updateLabels() -- Update the labels
   self:updateProperties() -- Update the properties
@@ -192,12 +182,6 @@ function QuickApp:updateLabels() -- Update the labels
   labelText = labelText .."Lastmonth: " ..data.lastMonthData .." kWh" .."\n"
   labelText = labelText .."Lastyear: " ..data.lastYearData .." " ..data.lastYearUnit .."\n"
   labelText = labelText .."Lifetime: " ..data.lifeTimeData .." " ..data.lifeTimeUnit .." (" ..data.lifeTimeData_revenue ..")" .."\n\n"
-  labelText = labelText .."Environmental Benefits:" .."\n"
-  labelText = labelText .."CO2: " ..data.co2 .." " ..data.units .."\n"
-  labelText = labelText .."SO2: " ..data.so2 .." " ..data.units .."\n"
-  labelText = labelText .."NOX: " ..data.nox .." " ..data.units .."\n"
-  labelText = labelText .."Trees planted: " ..data.treesPlanted .."\n"
-  labelText = labelText .."Lightbulbs: " ..data.lightBulbs .."\n\n"
   labelText = labelText .."Autarco installation: " .."\n"
   labelText = labelText .."Type: " ..data.type .."\n"
   labelText = labelText .."Module: " ..data.manufacturerName .."\n"
@@ -240,18 +224,6 @@ function QuickApp:valuesCheck() -- Check for decreasing Cloud values for lastDay
 end
 
 
-function QuickApp:valuesEnvBenefits(table) --Get the values from json file Environmental Benefits
-  self:logging(3,"QuickApp:valuesEnvBenefits()")
-  local jsonTableEnvBenefits = table
-  data.units = jsonTableEnvBenefits.envBenefits.gasEmissionSaved.units or "kg"
-  data.co2 = string.format("%.0f", jsonTableEnvBenefits.envBenefits.gasEmissionSaved.co2 or "0")
-  data.so2 = string.format("%.0f", jsonTableEnvBenefits.envBenefits.gasEmissionSaved.so2 or "0")
-  data.nox = string.format("%.0f", jsonTableEnvBenefits.envBenefits.gasEmissionSaved.nox or "0")
-  data.treesPlanted = string.format("%.0f", jsonTableEnvBenefits.envBenefits.treesPlanted or "0")
-  data.lightBulbs = string.format("%.0f", jsonTableEnvBenefits.envBenefits.lightBulbs or "0")
-end
-
-
 function QuickApp:valuesOverview(table) -- Get the values from json file Overview
   self:logging(3,"QuickApp:valuesOverview()")
   local jsonTable = table
@@ -281,37 +253,6 @@ function QuickApp:valuesDetails(table) -- Get the values from json file Details
   data.manufacturerName = jsonTableDetails.details.primaryModule.manufacturerName or ""
   data.modelName = jsonTableDetails.details.primaryModule.modelName or ""
   data.maximumPower = string.format("%.0f", jsonTableDetails.details.primaryModule.maximumPower or "0")
-end
-
-
-function QuickApp:getEnvBenefits() -- Get Environmental Benefits from the API
-  self:logging(3,"QuickApp:getEnvBenefits()")
-  local urlEnvBenefits = "https://my.autarco.com/api/m1/site/"..self:getVariable('siteID').."/power"..string.lower(self:getVariable('systemUnits')):gsub("^%l", string.upper)
-  self:logging(2,"URL EnvBenefits: " ..urlEnvBenefits)
-
-  http:request(urlEnvBenefits, {
-    options={headers = {Accept = "application/json"},method = 'GET'}, success = function(response)
-      self:logging(3,"response status: " ..response.status)
-      self:logging(3,"headers: " ..response.headers["Content-Type"])
-      self:logging(2,"Response data: " ..response.data)
-
-      if response.data == nil or response.data == "" or response.data == "[]" or response.status > 200 then -- Check for empty result
-        self:warning("Temporarily no Environmental Benefits data from Autarco Monitor")
-        self:logging(1,"response status: " ..response.status)
-        self:logging(1,"Response data: " ..response.data)
-        return
-      end
-
-      local jsonTableEnvBenefits = json.decode(response.data) -- JSON decode from api to lua-table
-
-      self:valuesEnvBenefits(jsonTableEnvBenefits) -- Get the values from EnvBenefits
-
-    end,
-    error = function(error)
-      self:error("error: " ..json.encode(error))
-      self:updateProperty("log", "error: " ..json.encode(error))
-    end
-  })
 end
 
 
@@ -356,11 +297,6 @@ function QuickApp:getData() -- Get Production data from the API
   })
   self:logging(3,"Timeout " ..interval .." seconds")
   fibaro.setTimeout(interval*1000, function()
-    self:logging(3,"EnvBenefits countdown: " ..tonumber(os.date("%H%M"))-1200 .." < " ..interval/60 .." and >= 0")
-    if tonumber(os.date("%H%M"))-1200 >= 0 and tonumber(os.date("%H%M"))-1200 < (interval/60) then -- Get Environmental Benefits data once every day after 12:00 hour
-      self:logging(2,"Get EnvBenefits at " ..os.date("%d-%m-%Y %H:%M"))
-      self:getEnvBenefits() -- Get Environmental Benefits data from Autarco API
-    end
     self:getData() -- Loop
   end)
 end
@@ -549,7 +485,6 @@ function QuickApp:onInit()
     self:simData() -- Go in simulation
   else
     self:getDetails() -- Get settings from Autarco API only at startup
-    self:getEnvBenefits() -- Get Environmental Benefits initial data from Autarco API
     self:getData() -- Go to loop getData()
   end
 end
