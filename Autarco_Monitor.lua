@@ -1,7 +1,7 @@
 -- QUICKAPP Autarco Monitor
 
 -- This QuickApp monitors your Autarco Solar Panels
--- The QuickApp has (child) devices for Solar Power, Lastday Data, Lastmonth Data, Lastyear Data and Lifetime Data
+-- The QuickApp has (child) devices for Solar Power, Energy generated today, Energy generated this month, and Energy generated to date.
 -- The Solar Production values are only requested from the Autarco API between sunrise and sunset
 -- The QuickApp also shows the Autarco Installation details in the labels
 -- The settings for Peak Power and Currency are retrieved from the inverter
@@ -13,65 +13,46 @@ function solarPower:__init(dev)
 end
 function solarPower:updateValue(data)
   self:updateProperty("value", tonumber(data.solarPower))
-  self:updateProperty("unit", "Watt/m²")
-  self:updateProperty("log", data.peakPower .." kWp / " ..solarM2 .." m²")
+  self:updateProperty("unit", "Watt")
 end
 
-class 'lastDayData'(QuickAppChild)
-function lastDayData:__init(dev)
+class 'currentDayData'(QuickAppChild)
+function currentDayData:__init(dev)
   QuickAppChild.__init(self,dev)
-  --self:trace("Retrieved value from lastDayData: " ..self.properties.value)
-  data.prevlastDayData = string.format("%.1f", self.properties.value) -- Initialize prevlastDayData with value of child device
+  --self:trace("Retrieved value from currentDayData: " ..self.properties.value)
+  data.prevcurrentDayData = string.format("%.1f", self.properties.value) -- Initialize prevcurrentDayData with value of child device
   if fibaro.getValue(self.id, "rateType") ~= "production" then
     self:updateProperty("rateType", "production")
-    self:warning("Changed rateType interface of Autarco lastDayData child device (" ..self.id ..") to production")
+    self:warning("Changed rateType interface of Autarco currentDayData child device (" ..self.id ..") to production")
     if not fibaro.getValue(self.id, "storeEnergyData") then
      self:updateProperty("storeEnergyData", false)
-     self:warning("Configured storeEnergyData property of lastDayData child device (" ..self.id ..") to true")
+     self:warning("Configured storeEnergyData property of currentDayData child device (" ..self.id ..") to true")
     end
   end
 end
-function lastDayData:updateValue(data)
-  self:updateProperty("value", tonumber(data.lastDayData))
+function currentDayData:updateValue(data)
+  self:updateProperty("value", tonumber(data.currentDayData))
   self:updateProperty("unit", "kWh")
   self:updateProperty("log", "")
 end
 
-class 'lastMonthData'(QuickAppChild)
-function lastMonthData:__init(dev)
+class 'currentMonthData'(QuickAppChild)
+function currentMonthData:__init(dev)
   QuickAppChild.__init(self,dev)
   if fibaro.getValue(self.id, "rateType") ~= "production" then
     self:updateProperty("rateType", "production")
-    self:warning("Changed rateType interface of Autarco lastMonthData child device (" ..self.id ..") to production")
+    self:warning("Changed rateType interface of Autarco currentMonthData child device (" .. self.id .. ") to production")
     if not fibaro.getValue(self.id, "storeEnergyData") then
       self:updateProperty("storeEnergyData", false)
-      self:warning("Configured storeEnergyData property of lastMonthData child device (" ..self.id ..") to false")
+      self:warning("Configured storeEnergyData property of currentMonthData child device (" ..self.id ..") to false")
     end
   end
-end
-function lastMonthData:updateValue(data)
-  self:updateProperty("value", tonumber(data.lastMonthData))
+function currentData:updateValue(data)
+  self:updateProperty("value", tonumber(data.pvMonth))
   self:updateProperty("unit", "kWh")
   self:updateProperty("log", "")
 end
 
-class 'lastYearData'(QuickAppChild)
-function lastYearData:__init(dev)
-  QuickAppChild.__init(self,dev)
-  if fibaro.getValue(self.id, "rateType") ~= "production" then
-    self:updateProperty("rateType", "production")
-    self:warning("Changed rateType interface of Autarco lastYearData child device (" ..self.id ..") to production")
-    if not fibaro.getValue(self.id, "storeEnergyData") then
-      self:updateProperty("storeEnergyData", false)
-      self:warning("Configured storeEnergyData property of lastYearData child device (" ..self.id ..") to false")
-    end
-  end
-end
-function lastYearData:updateValue(data)
-  self:updateProperty("value", tonumber(data.lastYearData))
-  self:updateProperty("unit", data.lastYearUnit)
-  self:updateProperty("log", "")
-end
 
 class 'lifeTimeData'(QuickAppChild)
 function lifeTimeData:__init(dev)
@@ -87,8 +68,7 @@ function lifeTimeData:__init(dev)
 end
 function lifeTimeData:updateValue(data)
   self:updateProperty("value", tonumber(data.lifeTimeData))
-  self:updateProperty("unit", data.lifeTimeUnit)
-  self:updateProperty("log", data.lifeTimeData_revenue)
+  self:updateProperty("unit", "kWh")
 end
 
 
@@ -144,11 +124,11 @@ end
 
 function QuickApp:simData() -- Simulate Autarco Monitor
   self:logging(3,"QuickApp:simData()")
-  local jsonTableDetails = json.decode('{"details":{"id":1234567, "name":"NAME-INSTALLATION", "accountId":123456, "status":"Active", "peakPower":6.8, "lastUpdateTime":"2022-02-01", "currency":"EUR", "installationDate":"2021-02-01", "ptoDate":null, "notes":"", "type":"Optimizers&Inverters", "location":{"country":"Earth", "city":"SimCity", "address":"Street1", "address2":"", "zip":"1234AA", "timeZone":"Europe/Amsterdam", "countryCode":"EU"}, "primaryModule":{"manufacturerName":"LG", "modelName":"LG340", "maximumPower":340}, "uris":{"DETAILS":"/site/1234567/details", "DATA_PERIOD":"/site/1234567/dataPeriod", "OVERVIEW":"/site/1234567/overview"}, "publicSettings":{"isPublic":false}}}')
-  local jsonTable = json.decode('{"overview":{"lastUpdateTime":"2021-08-12 13:46:04","lifeTimeData":{"energy":7827878.0,"revenue":1728.5211},"lastYearData":{"energy":573242.0},"lastMonthData":{"energy":113386.0},"lastDayData":{"energy":7373.0},"currentPower":{"power":134.73499},"measuredBy":"INVERTER"}}') -- With revenue
+  local jsonTableEnergy = json.decode('{"stats":{"graphs":{"pv_energy":{"154E41209290014":{"2022-09-01":8,"2022-09-02":6,"2022-09-03":7,"2022-09-04":6,"2022-09-05":7,"2022-09-06":7,"2022-09-07":6,"2022-09-08":4,"2022-09-09":3,"2022-09-10":5,"2022-09-11":7,"2022-09-12":6,"2022-09-13":5,"2022-09-14":6,"2022-09-15":3,"2022-09-16":4,"2022-09-17":5,"2022-09-18":1,"2022-09-19":3,"2022-09-20":3,"2022-09-21":5,"2022-09-22":5,"2022-09-23":1,"2022-09-24":0,"2022-09-25":0,"2022-09-26":0,"2022-09-27":0,"2022-09-28":0,"2022-09-29":0,"2022-09-30":0}},"no_comms":[]},"kpis":{"pv_today":1,"pv_month":113,"pv_to_date":2017}}}')
+  local jsonTablePower = json.decode('{"dt_config_changed":"2021-11-26T15:34:20+00:00","inverters":{"154E41209290014":{"sn":"154E41209290014","dt_latest_msg":"2022-09-23T09:55:14+00:00","out_ac_power":357,"out_ac_energy_total":2017,"error":null,"grid_turned_off":false,"health":"OK"}},"stats":{"graphs":{"pv_power":{"154E41209290014":{"2022-09-23 00:00:00":0,"2022-09-23 00:15:00":0,"2022-09-23 00:30:00":0,"2022-09-23 00:45:00":0,"2022-09-23 01:00:00":0,"2022-09-23 01:15:00":0,"2022-09-23 01:30:00":0,"2022-09-23 01:45:00":0,"2022-09-23 02:00:00":0,"2022-09-23 02:15:00":0,"2022-09-23 02:30:00":0,"2022-09-23 02:45:00":0,"2022-09-23 03:00:00":0,"2022-09-23 03:15:00":0,"2022-09-23 03:30:00":0,"2022-09-23 03:45:00":0,"2022-09-23 04:00:00":0,"2022-09-23 04:15:00":0,"2022-09-23 04:30:00":0,"2022-09-23 04:45:00":0,"2022-09-23 05:00:00":0,"2022-09-23 05:15:00":0,"2022-09-23 05:30:00":0,"2022-09-23 05:45:00":0,"2022-09-23 06:00:00":0,"2022-09-23 06:15:00":0,"2022-09-23 06:30:00":0,"2022-09-23 06:45:00":0,"2022-09-23 07:00:00":0,"2022-09-23 07:15:00":0,"2022-09-23 07:30:00":0,"2022-09-23 07:45:00":0,"2022-09-23 08:00:00":118,"2022-09-23 08:15:00":117,"2022-09-23 08:30:00":117,"2022-09-23 08:45:00":117,"2022-09-23 09:00:00":117,"2022-09-23 09:15:00":189,"2022-09-23 09:30:00":221,"2022-09-23 09:45:00":206,"2022-09-23 10:00:00":190,"2022-09-23 10:15:00":166,"2022-09-23 10:30:00":158,"2022-09-23 10:45:00":182,"2022-09-23 11:00:00":221,"2022-09-23 11:15:00":237,"2022-09-23 11:30:00":213,"2022-09-23 11:45:00":309}},"no_comms":[]},"kpis":{"pv_now":357}}}')
 
-  self:valuesDetails(jsonTableDetails) -- Get the values from Details
-  self:valuesOverview(jsonTable) -- Get the values from Overview
+  self:valuesEnergy(jsonTableEnergy) -- Get the values from Energy, in kWh
+  self:valuesPower(jsonTablePower) -- Get the values from Power, in W
   self:updateLabels() -- Update the labels
   self:updateProperties() -- Update the properties
   self:updateChildDevices() -- Update the Child Devices
@@ -176,10 +156,8 @@ function QuickApp:updateLabels() -- Update the labels
     labelText = labelText .."SIMULATION MODE" .."\n\n"
   end
   labelText = labelText .."Current power: " ..data.currentPower .." Watt" .."\n\n"
-  labelText = labelText .."Peakpower: " ..data.peakPower .." kWp" .."\n"
-  labelText = labelText .."Solar power: " ..data.solarPower .." Watt/m² (" ..solarM2 .." m²)" .."\n"
-  labelText = labelText .."Lastday: " ..data.lastDayData .." kWh" .."\n"
-  labelText = labelText .."Lastmonth: " ..data.lastMonthData .." kWh" .."\n"
+  labelText = labelText .."Current day: " ..data.currentDayData .." kWh" .."\n"
+  labelText = labelText .."Current month: " ..data.currentMonthData .." kWh" .."\n"
   labelText = labelText .."Lastyear: " ..data.lastYearData .." " ..data.lastYearUnit .."\n"
   labelText = labelText .."Lifetime: " ..data.lifeTimeData .." " ..data.lifeTimeUnit .." (" ..data.lifeTimeData_revenue ..")" .."\n\n"
   labelText = labelText .."Autarco installation: " .."\n"
@@ -212,14 +190,14 @@ function QuickApp:sunsetCheck() -- Check for sunset and sleep time
 end
 
 
-function QuickApp:valuesCheck() -- Check for decreasing Cloud values for lastDayData
+function QuickApp:valuesCheck() -- Check for decreasing Cloud values for currentDayData
   self:logging(3,"QuickApp:valuesCheck()")
-  self:logging(3,"Previous lastDayData: " ..data.prevlastDayData .. " / Next lastDayData: " ..data.lastDayData)
-  if tonumber(data.lastDayData) < tonumber(data.prevlastDayData) and tonumber(data.prevlastDayData) ~= 0 and tonumber(data.lastDayData) ~= 0 then -- Decreasing value
-    self:logging(2,"Decreasing value lastDayData ignored (Energy Panel Child Device), previous value: " ..data.prevlastDayData .." next value: " ..data.lastDayData)
-    data.lastDayData = string.format("%.1f", data.prevlastDayData) -- Restore previous (higher) lastDayData value
+  self:logging(3,"Previous currentDayData: " ..data.prevcurrentDayData .. " / Next currentDayData: " ..data.currentDayData)
+  if tonumber(data.currentDayData) < tonumber(data.prevcurrentDayData) and tonumber(data.prevcurrentDayData) ~= 0 and tonumber(data.currentDayData) ~= 0 then -- Decreasing value
+    self:logging(2,"Decreasing value currentDayData ignored (Energy Panel Child Device), previous value: " ..data.prevcurrentDayData .." next value: " ..data.currentDayData)
+    data.currentDayData = string.format("%.1f", data.prevcurrentDayData) -- Restore previous (higher)currentDayData value
   else
-    data.prevlastDayData = string.format("%.1f", data.lastDayData) -- Save lastDayData to prevlastDayData only in case of increasing value
+    data.prevcurrentDayData = string.format("%.1f", data.currentDayData) -- Save currentDayData to prevcurrentDayData only in case of increasing value
   end
 end
 
@@ -227,37 +205,23 @@ end
 function QuickApp:valuesOverview(table) -- Get the values from json file Overview
   self:logging(3,"QuickApp:valuesOverview()")
   local jsonTable = table
-  data.currentPower = string.format("%.0f", jsonTable.stats.kpis.pv_now or "0")
-  data.solarPower = string.format("%.1f",self:solarPower(tonumber(data.currentPower), tonumber(solarM2)))
-  data.lastDayData = string.format("%.1f",jsonTable.overview.lastDayData.energy/1000 or "0")
-  data.lastMonthData = string.format("%.1f",jsonTable.overview.lastMonthData.energy/1000 or "0")
-  data.lastYearData = jsonTable.overview.lastYearData.energy or "0"
-  data.lastYearData, data.lastYearUnit = self:unitCheckWh(tonumber(data.lastYearData)) -- Set measurement and unit to kWh, MWh or GWh
-  data.lifeTimeData = jsonTable.overview.lifeTimeData.energy or "0"
-  data.lifeTimeData, data.lifeTimeUnit = self:unitCheckWh(tonumber(data.lifeTimeData)) -- Set measurement and unit to kWh, MWh or GWh
-  data.lifeTimeData_revenue = string.format("%.2f", jsonTable.overview.lifeTimeData.revenue or "0.00") .." " ..data.currency -- lifeTimeData_revenue is not mandatory
-  data.lastUpdateTime = jsonTable.overview.lastUpdateTime or os.date("%d-%m-%Y %H:%M")
-  local pattern = "(%d+)-(%d+)-(%d+) (%d+):(%d+):(%d+)"
-  local runyear, runmonth, runday, runhour, runminute, runseconds = data.lastUpdateTime:match(pattern)
-  local convertedTimestamp = os.time({year = runyear, month = runmonth, day = runday, hour = runhour, min = runminute, sec = runseconds})
-  data.lastUpdateTime = os.date("%d-%m-%Y %H:%M", convertedTimestamp)
+  data.currentPower = string.format("%.0f", jsonTableEnergy.stats.kpis.pv_now or "0")
+  data.currentDayData = string.format("%.1f",jsonTableEnergy.stats.kpis.pv_today or "0")
+  data.currentMonthData = string.format("%.1f",jsonTableEnergy.stats.kpis.pv_month or "0")
+  data.lifeTimeData = jsonTableEnergy.stats.kpis.pv_to_date or "0"
+  data.lastUpdateTime = jsonTablePower.inverters.154E41209290014.dt_latest_msg or os.date("%d-%m-%Y %H:%M:%S")
 end
 
 
-function QuickApp:valuesDetails(table) -- Get the values from json file Details
-  self:logging(3,"QuickApp:valuesDetails()")
-  local jsonTableDetails = table
-  data.peakPower = string.format("%.1f", jsonTableDetails.details.peakPower or "0")
-  data.currency = jsonTableDetails.details.currency or "EUR"
-  data.type = jsonTableDetails.details.type or ""
-  data.manufacturerName = jsonTableDetails.details.primaryModule.manufacturerName or ""
-  data.modelName = jsonTableDetails.details.primaryModule.modelName or ""
-  data.maximumPower = string.format("%.0f", jsonTableDetails.details.primaryModule.maximumPower or "0")
+function QuickApp:valuesEnergy(table) -- Get the values from Energy json API
+  self:logging(3,"QuickApp:valuesEnergy()")
+  local jsonTableEnergy = table
+  data.stats = jsonTableEnergy.stats or {}
 end
 
 
-function QuickApp:getData() -- Get Production data from the API
-  self:logging(3,"QuickApp:getData()")
+function QuickApp:getPower() -- Get Production data from the API
+  self:logging(3,"QuickApp:getPower()")
   local urlOverview = "https://my.autarco.com/api/m1/site/"..self:getVariable('siteID').."/power"
   self:logging(2,"URL Overview: " ..urlOverview)
 
@@ -271,7 +235,7 @@ function QuickApp:getData() -- Get Production data from the API
       self:logging(3,"headers: " ..response.headers["Content-Type"])
       self:logging(2,"Response data: " ..response.data)
 
-      if response.data == nil or response.data == "" or response.data == "[]" or response.status > 200 then -- Check for empty result
+      if response.data == nil or response.data == "" or response.status > 200 then -- Check for empty result
         self:warning("Temporarily no production data from Autarco Monitor")
         self:logging(1,"response status: " ..response.status)
         self:logging(1,"Response data: " ..response.data)
@@ -297,31 +261,36 @@ function QuickApp:getData() -- Get Production data from the API
   })
   self:logging(3,"Timeout " ..interval .." seconds")
   fibaro.setTimeout(interval*1000, function()
-    self:getData() -- Loop
+    self:getPower() -- Loop
   end)
 end
 
 
-function QuickApp:getDetails() -- Get the settings from the API
-  self:logging(3,"QuickApp:getDetails()")
-  local urlDetails = "https://my.autarco.com/api/m1/site/"..self:getVariable('siteID').."/power"
-  self:logging(2,"URL Details: " ..urlDetails)
-  http:request(urlDetails, {
-    options={headers = {Accept = "application/json"},method = 'GET'}, success = function(response)
+function QuickApp:getEnergy() -- Get the settings from the API
+  self:logging(3,"QuickApp:getEnergy()")
+  local urlEnergy = "https://my.autarco.com/api/m1/site/"..self:getVariable('siteID').."/power"
+  self:logging(2,"URL Energy: " ..urlEnergy)
+
+  local headers = {}
+  headers['Accept'] = "application/json"
+  headers['Authorization'] = self:getVariable("Authorization")
+
+  http:request(urlEnergy, {
+    options={headers = headers,method = 'GET'}, success = function(response)
       self:logging(3,"response status: " ..response.status)
       self:logging(3,"headers: " ..response.headers["Content-Type"])
       self:logging(2,"Response data: " ..response.data)
 
       if response.data == nil or response.data == "" or response.data == "[]" or response.status > 200 then -- Check for empty result
-        self:warning("Temporarily no details data from Autarco Monitor")
+        self:warning("Temporarily no energy data from Autarco Monitor")
         self:logging(1,"response status: " ..response.status)
         self:logging(1,"Response data: " ..response.data)
         return
       end
 
-      local jsonTableDetails = json.decode(response.data) -- JSON decode from api to lua-table
+      local jsonTableEnergy = json.decode(response.data) -- JSON decode from api to lua-table
 
-      self:valuesDetails(jsonTableDetails) -- Get the values from Details
+      self:valuesEnergy(jsonTableEnergy) -- Get the values from Energy
 
     end,
     error = function(error)
@@ -343,22 +312,14 @@ function QuickApp:createVariables() -- Create all Variables
   data.maximumPower = ""
 
   data.units = ""
-  data.co2 = "0"
-  data.so2 = "0"
-  data.nox = "0"
-  data.treesPlanted = "0"
-  data.lightBulbs = "0"
-
   data.currentPower = "0"
-  data.solarPower = "0"
   data.lastDayData = "0"
   --data.prevlastDayData = "0" -- Is set in Child device class
-  data.lastMonthData = "0"
+  data.currentMonthData = "0"
   data.lastYearData= "0"
   data.lastYearUnit= "Wh"
   data.lifeTimeData= "0"
-  data.lifeTimeUnit= "Wh"
-  data.lifeTimeData_revenue = "0"
+  data.lifeTimeUnit= "kWh"
   data.lastUpdateTime = ""
 end
 
@@ -443,7 +404,7 @@ function QuickApp:setupChildDevices()
     local initChildData = {
       {className="solarPower", name="Solar Power", type="com.fibaro.powerMeter", value=0},
       {className="lastDayData", name="Last day", type="com.fibaro.energyMeter", value=0},
-      {className="lastMonthData", name="Last month", type="com.fibaro.energyMeter", value=0},
+      {className="currentMonthData", name="Current month", type="com.fibaro.energyMeter", value=0},
       {className="lastYearData", name="Last year", type="com.fibaro.energyMeter", value=0},
       {className="lifeTimeData", name="Lifetime", type="com.fibaro.energyMeter", value=0},
     }
@@ -484,8 +445,8 @@ function QuickApp:onInit()
   if tonumber(debugLevel) >= 4 then
     self:simData() -- Go in simulation
   else
-    self:getDetails() -- Get settings from Autarco API only at startup
-    self:getData() -- Go to loop getData()
+    self:getEnergy() -- Get settings from Autarco API only at startup
+    self:getPower() -- Go to loop getPower()
   end
 end
 
